@@ -14,6 +14,12 @@ CIANO='\033[0;36m'
 ROXO='\033[0;35m'
 SEM_COR='\033[0m'
 
+# Diretórios de memória
+DIR_MEMORIA="$HOME/.ip-bot"
+DIR_SOLUCOES="$DIR_MEMORIA/solucoes"
+DIR_SESSOES="$DIR_MEMORIA/sessoes"
+mkdir -p "$DIR_SOLUCOES" "$DIR_SESSOES"
+
 # Função de pausa
 pausar() {
     echo ""
@@ -29,7 +35,7 @@ echo -e "\( {AZUL}==============================================================
 echo ""
 
 echo -e "\( {AZUL}[1/3] Atualizando repositórios e instalando dependências... \){SEM_COR}"
-sudo apt update && sudo apt install -y curl htop
+sudo apt update && sudo apt install -y curl htop python3 python3-pip
 
 echo -e "\n\( {AZUL}[2/3] Verificando instalação do Ollama... \){SEM_COR}"
 if ! command -v ollama &> /dev/null; then
@@ -43,6 +49,9 @@ echo -e "\n\( {AZUL}[3/3] Ativando o serviço do Ollama... \){SEM_COR}"
 sudo systemctl enable ollama >/dev/null 2>&1
 sudo systemctl start ollama >/dev/null 2>&1
 sleep 1
+
+# Instala a biblioteca Python do Ollama (necessária para a memória)
+pip3 install --user ollama >/dev/null 2>&1
 
 echo -e "\n\( {VERDE}Configuração concluída com sucesso! \){SEM_COR}"
 sleep 1.5
@@ -61,21 +70,27 @@ while true; do
     echo -e "  4) DeepSeek-R1 \( {AMARELO}7B \){SEM_COR}      [\~5.0 GB]  → Raciocínio forte"
     echo -e "  5) DeepSeek-R1 \( {AMARELO}8B \){SEM_COR}      [\~5.2 GB]  → Raciocínio + base Llama"
     echo "------------------------------------------------------------------------"
-    echo -e "\( {ROXO} [ IP-BOT (PROMPT + REGRAS DO .MD INJETADOS) ] \){SEM_COR}"
+    echo -e "\( {ROXO} [ IP-BOT (PROMPT + REGRAS DO .MD + MEMÓRIA) ] \){SEM_COR}"
     echo -e "  6) Criar / Atualizar o IP-BOT (carrega o arquivo .md de regras)"
-    echo -e "  7) Rodar IP-BOT \( {AMARELO}(Modo Desafio + Modo Prova prontos) \){SEM_COR}"
+    echo -e "  7) Rodar IP-BOT \( {AMARELO}(com memória persistente de conversa) \){SEM_COR}"
+    echo "------------------------------------------------------------------------"
+    echo -e "\( {ROXO} [ MEMÓRIA ] \){SEM_COR}"
+    echo -e "  8) Listar soluções salvas"
+    echo -e "  9) Ver / Abrir uma solução salva"
+    echo -e " 10) Limpar histórico de sessões"
     echo "------------------------------------------------------------------------"
     echo -e "\( {ROXO} [ FERRAMENTAS ] \){SEM_COR}"
-    echo -e "  8) Monitorar CPU e Memória (\( {AZUL}htop \){SEM_COR})"
-    echo -e "  9) Parar Ollama (\( {VERMELHO}Liberar toda a RAM \){SEM_COR})"
-    echo -e " 10) Iniciar / Reativar Ollama"
-    echo -e " 11) Remover modelo"
-    echo -e " 12) Ver modelos instalados"
+    echo -e " 11) Monitorar CPU e Memória (\( {AZUL}htop \){SEM_COR})"
+    echo -e " 12) Parar Ollama (\( {VERMELHO}Liberar toda a RAM \){SEM_COR})"
+    echo -e " 13) Iniciar / Reativar Ollama"
+    echo -e " 14) Remover modelo"
+    echo -e " 15) Ver modelos instalados"
     echo "------------------------------------------------------------------------"
-    echo " 13) Sair"
+    echo " 16) Sair"
     echo "========================================================================"
     echo -e "\( {CIANO}Dica: Com Firefox + VS Code abertos, prefira opções 1, 2 ou 3. \){SEM_COR}"
     echo -e "\( {CIANO}Para a prova: opção 6 (carrega .md) → opção 7 → digite \"Modo Prova\" \){SEM_COR}"
+    echo -e "\( {CIANO}Memória salva em: \~/.ip-bot/ \){SEM_COR}"
     echo "========================================================================"
     read -p "Digite o número da opção: " opcao
 
@@ -92,6 +107,7 @@ while true; do
             ;;
         3)
             echo -e "\n\( {AMARELO}Iniciando Qwen2.5-Coder 7B (recomendado)... \){SEM_COR}"
+            echo -e "\( {CIANO}Ideal para desafios de I.P. e para a prova. \){SEM_COR}"
             ollama run qwen2.5-coder:7b
             pausar
             ;;
@@ -114,7 +130,6 @@ while true; do
             echo ""
             read -p "Digite o caminho completo ou o nome do arquivo .md (ex: regras.md): " arquivo_md
 
-            # Verifica se o arquivo existe
             if [ ! -f "$arquivo_md" ]; then
                 echo -e "\n${VERMELHO}Erro: Arquivo '\( arquivo_md' não encontrado! \){SEM_COR}"
                 pausar
@@ -126,7 +141,6 @@ while true; do
 
             echo -e "\( {AZUL}Criando o modelo personalizado IP-BOT... \){SEM_COR}"
 
-            # Cria o Modelfile com o prompt fixo + conteúdo do .md
             cat > /tmp/Modelfile-ip-bot << MODELEOF
 FROM qwen2.5-coder:7b
 
@@ -198,11 +212,10 @@ MODELEOF
 
             echo -e "\n\( {VERDE}IP-BOT criado/atualizado com sucesso! \){SEM_COR}"
             echo -e "${CIANO}As regras do arquivo '\( arquivo_md' foram gravadas na memória do modelo. \){SEM_COR}"
-            echo -e "\( {CIANO}Agora use a opção 7 para rodar o IP-BOT. \){SEM_COR}"
+            echo -e "\( {CIANO}Agora use a opção 7 para rodar o IP-BOT com memória. \){SEM_COR}"
             pausar
             ;;
         7)
-            # Verifica se o modelo ip-bot existe
             if ! ollama list | grep -q "ip-bot"; then
                 echo -e "\n\( {VERMELHO}O modelo IP-BOT ainda não foi criado. \){SEM_COR}"
                 echo -e "\( {AMARELO}Use primeiro a opção 6 para criar o IP-BOT carregando o arquivo .md. \){SEM_COR}"
@@ -210,32 +223,72 @@ MODELEOF
                 continue
             fi
 
-            echo -e "\n\( {AMARELO}Iniciando IP-BOT (regras já injetadas)... \){SEM_COR}"
+            echo -e "\n\( {AMARELO}Iniciando IP-BOT com memória persistente... \){SEM_COR}"
             echo -e "\( {CIANO}Digite \"Modo Desafio\" ou \"Modo Prova\" para ativar o modo desejado. \){SEM_COR}"
             echo -e "\( {CIANO}Depois cole o enunciado da questão manualmente. \){SEM_COR}"
             echo ""
-            ollama run ip-bot
+
+            # Chama o helper Python (precisa estar na mesma pasta)
+            SCRIPT_DIR="\( (cd " \)(dirname "${BASH_SOURCE[0]}")" && pwd)"
+            if [ -f "$SCRIPT_DIR/ipbot_chat.py" ]; then
+                python3 "$SCRIPT_DIR/ipbot_chat.py"
+            else
+                echo -e "\( {VERMELHO}Arquivo ipbot_chat.py não encontrado na mesma pasta do script! \){SEM_COR}"
+                echo -e "\( {AMARELO}Coloque o ipbot_chat.py junto com o ollama.sh \){SEM_COR}"
+            fi
             pausar
             ;;
         8)
+            echo -e "\n\( {AZUL}=== SOLUÇÕES SALVAS === \){SEM_COR}"
+            if [ -z "$(ls -A "$DIR_SOLUCOES" 2>/dev/null)" ]; then
+                echo "Nenhuma solução salva ainda."
+            else
+                ls -1 "$DIR_SOLUCOES"
+            fi
+            pausar
+            ;;
+        9)
+            echo -e "\n\( {AZUL}Soluções disponíveis: \){SEM_COR}"
+            ls -1 "$DIR_SOLUCOES" 2>/dev/null || echo "Nenhuma solução salva."
+            echo ""
+            read -p "Digite o nome do arquivo para abrir: " nome_sol
+            if [ -f "$DIR_SOLUCOES/$nome_sol" ]; then
+                less "$DIR_SOLUCOES/$nome_sol"
+            else
+                echo -e "\( {VERMELHO}Arquivo não encontrado. \){SEM_COR}"
+            fi
+            pausar
+            ;;
+        10)
+            echo -e "\n\( {VERMELHO}Isso apagará todo o histórico de conversas salvas. \){SEM_COR}"
+            read -p "Tem certeza? (s/N): " conf
+            if [[ "\( conf" =\~ ^[sS] \) ]]; then
+                rm -rf "$DIR_SESSOES"/*
+                echo -e "\( {VERDE}Histórico de sessões limpo com sucesso. \){SEM_COR}"
+            else
+                echo "Operação cancelada."
+            fi
+            pausar
+            ;;
+        11)
             echo -e "\n\( {AZUL}Abrindo htop... \){SEM_COR}"
             echo "Pressione [q] ou [F10] para sair do monitor."
             sleep 1.5
             htop
             ;;
-        9)
+        12)
             echo -e "\n\( {VERMELHO}Parando o serviço do Ollama... \){SEM_COR}"
             sudo systemctl stop ollama
             echo -e "\( {VERDE}Serviço parado. Memória liberada com sucesso. \){SEM_COR}"
             pausar
             ;;
-        10)
+        13)
             echo -e "\n\( {AZUL}Iniciando o serviço do Ollama... \){SEM_COR}"
             sudo systemctl start ollama
             echo -e "\( {VERDE}Serviço ativo e pronto para uso! \){SEM_COR}"
             pausar
             ;;
-        11)
+        14)
             echo -e "\n\( {AZUL}Modelos atualmente instalados: \){SEM_COR}"
             ollama list
             echo "--------------------------------------------------"
@@ -249,12 +302,12 @@ MODELEOF
             fi
             pausar
             ;;
-        12)
+        15)
             echo -e "\n\( {AZUL}Modelos instalados no momento: \){SEM_COR}"
             ollama list
             pausar
             ;;
-        13)
+        16)
             echo -e "\n\( {VERDE}Encerrando a central. Bons códigos e boa prova! \){SEM_COR}"
             exit 0
             ;;
